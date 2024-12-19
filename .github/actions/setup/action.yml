@@ -1,0 +1,38 @@
+name: Composite docker setup
+description: composite docker setup
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v2
+    - uses: docker/build-push-action@v4
+      with:
+        context: .
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Install actionlint
+      run: bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+      shell: bash
+
+    - name: Run actionlint
+      run: ./actionlint
+      shell: bash
+
+    - name: Setup container
+      run: |
+        echo "::group::setup container::"
+        mkdir -p src/node_modules
+        chmod 777 src/node_modules
+        sudo chown -R 1000:1000 src
+        docker compose up -d --build
+        echo "::endgroup::"
+      shell: bash
+          
+    - name: Run npm ci
+      run : |
+        echo "::group::npm ci"
+        docker compose run --rm --user 1000:1000 app npm ci --ignore-scripts
+        echo "::endgroup::"
+      shell: bash
