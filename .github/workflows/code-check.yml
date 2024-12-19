@@ -1,0 +1,78 @@
+name: "Code check"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize]
+
+env: 
+  SLACK_USERNAME: DeployBot
+  SLACK_ICON: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+  
+jobs:
+  code-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Slack Notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ env.SLACK_WEBHOOK }}
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: 静的解析の開始
+          SLACK_MESSAGE: |
+            - リポジトリ: ${{ github.repository }}
+            - ハッシュ: ${{ github.sha }}
+
+      - uses: "./.github/actions/setup"
+          
+      - name: Run lint
+        run: |
+          echo "::notice title=lintの実行"
+          echo "::group::npm run lint"
+          docker compose run --rm --user 1000:1000 app npm run lint
+          echo "::endgroup::"
+          
+      - name: Run tsc
+        run: |
+          echo "::notice title=tscの実行"
+          echo "::group::tsc"
+          docker compose run --rm --user 1000:1000 app npx tsc
+          echo "::endgroup::"
+
+      - name: Success Notification
+        uses: rtCamp/action-slack-notify@v2
+        if: success()
+        env:
+          SLACK_WEBHOOK: ${{ env.SLACK_WEBHOOK }}
+          SLACK_COLOR: good
+          SLACK_TITLE: ✔ 静的解析成功
+          SLACK_MESSAGE: |
+            - 環境: dev
+            - リポジトリ: ${{ github.repository }}
+
+      - name: Failure Notification
+        uses: rtCamp/action-slack-notify@v2
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ env.SLACK_WEBHOOK }}
+          SLACK_COLOR: danger
+          SLACK_TITLE: ❌ 静的解析の失敗
+          SLACK_MESSAGE: |
+            - 環境: dev
+            - エラー箇所: ${{ github.job }}
+            - リポジトリ: ${{ github.repository }}
+            詳細は GitHub Actions ページで確認: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
