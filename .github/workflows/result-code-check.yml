@@ -54,3 +54,4 @@ jobs:
             - エラー箇所: ${{ github.job }}
             - リポジトリ: ${{ github.repository }}
             詳細は GitHub Actions ページで確認: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
