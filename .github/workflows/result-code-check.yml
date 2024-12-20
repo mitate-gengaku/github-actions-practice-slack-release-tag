@@ -1,0 +1,56 @@
+name: "Code check"
+
+on:
+  workflow_run:
+    workflows: [
+      "Code check"
+    ]
+    types: [
+      completed
+    ]
+
+env: 
+  SLACK_USERNAME: DeployBot
+  SLACK_ICON: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+  
+jobs:
+  result:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Success Notification
+        uses: rtCamp/action-slack-notify@v2
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        env:
+          SLACK_WEBHOOK: ${{ env.SLACK_WEBHOOK }}
+          SLACK_COLOR: good
+          SLACK_TITLE: ✔ 静的解析成功
+          SLACK_MESSAGE: |
+            - 環境: dev
+            - リポジトリ: ${{ github.repository }}
+
+      - name: Failure Notification
+        uses: rtCamp/action-slack-notify@v2
+        if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+        env:
+          SLACK_WEBHOOK: ${{ env.SLACK_WEBHOOK }}
+          SLACK_COLOR: danger
+          SLACK_TITLE: ❌ 静的解析の失敗
+          SLACK_MESSAGE: |
+            - 環境: dev
+            - エラー箇所: ${{ github.job }}
+            - リポジトリ: ${{ github.repository }}
+            詳細は GitHub Actions ページで確認: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
